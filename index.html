@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Passport AI | Secure</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --bg: #e0e5ec; --nm-light: #ffffff; --nm-dark: #a3b1c6; }
+        body { background-color: var(--bg); font-family: 'Inter', sans-serif; color: #4a5568; }
+        .nm-flat { background: var(--bg); box-shadow: 8px 8px 16px var(--nm-dark), -8px -8px 16px var(--nm-light); border-radius: 30px; }
+        .nm-inset { background: var(--bg); box-shadow: inset 6px 6px 12px var(--nm-dark), inset -6px -6px 12px var(--nm-light); border-radius: 20px; }
+        .nm-btn { background: var(--bg); box-shadow: 6px 6px 12px var(--nm-dark), -6px -6px 12px var(--nm-light); transition: all 0.2s ease; border-radius: 16px; font-weight: bold; }
+        .nm-btn:active { box-shadow: inset 4px 4px 8px var(--nm-dark), inset -4px -4px 8px var(--nm-light); transform: scale(0.98); }
+        .loading-text:after { content: '...'; animation: dots 1.5s infinite; }
+        @keyframes dots { 0%, 20% { content: ''; } 40% { content: '.'; } 60% { content: '..'; } 80% { content: '...'; } }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-6">
+    <div class="max-w-sm w-full p-8 nm-flat">
+        <div class="text-center mb-8">
+            <div class="w-14 h-14 mx-auto mb-4 nm-flat flex items-center justify-center text-blue-500 text-xl">
+                <i class="fas fa-camera-retro"></i>
+            </div>
+            <h1 class="text-lg font-bold text-slate-700 tracking-tight">Passport AI</h1>
+        </div>
+
+        <div id="upload-zone" class="nm-inset p-4 mb-6 cursor-pointer group text-center relative overflow-hidden h-44 flex flex-col items-center justify-center">
+            <input type="file" id="file-input" class="hidden" accept="image/*">
+            <div id="placeholder-ui">
+                <i class="fas fa-plus text-slate-300 text-2xl mb-2 group-hover:text-blue-400"></i>
+                <p class="text-[11px] text-slate-400 font-medium">Upload Image</p>
+            </div>
+            <img id="preview-img" class="hidden absolute inset-0 w-full h-full object-cover rounded-2xl p-1">
+        </div>
+
+        <button id="create-btn" class="w-full py-4 nm-btn text-blue-600 text-sm tracking-wide mb-6">Create</button>
+
+        <div id="result-display" class="hidden text-center">
+            <div class="nm-inset p-2 mb-6 inline-block bg-white/50">
+                <img id="output-img" class="w-32 h-32 object-cover rounded">
+            </div>
+            <div class="flex gap-4">
+                <button id="download-btn" class="flex-1 py-3 nm-btn text-emerald-600 text-xs uppercase tracking-wider">Save</button>
+                <button onclick="window.location.reload()" class="w-12 h-12 nm-btn text-slate-400"><i class="fas fa-sync-alt"></i></button>
+            </div>
+        </div>
+        <div id="error-status" class="hidden text-[10px] text-red-500 mt-4 text-center italic"></div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('file-input');
+        const uploadZone = document.getElementById('upload-zone');
+        const previewImg = document.getElementById('preview-img');
+        const createBtn = document.getElementById('create-btn');
+        const resultDisplay = document.getElementById('result-display');
+        const outputImg = document.getElementById('output-img');
+        const errorStatus = document.getElementById('error-status');
+
+        let imageData = null;
+
+        uploadZone.onclick = () => fileInput.click();
+
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                imageData = ev.target.result.split(',')[1];
+                previewImg.src = ev.target.result;
+                previewImg.classList.remove('hidden');
+                document.getElementById('placeholder-ui').classList.add('hidden');
+            };
+            reader.readAsDataURL(file);
+        };
+
+        createBtn.onclick = async () => {
+            if (!imageData) return alert("Upload image first!");
+            
+            createBtn.disabled = true;
+            createBtn.innerHTML = '<span class="loading-text">Generating</span>';
+            errorStatus.classList.add('hidden');
+
+            try {
+                // সরাসরি Google API কল না করে আমাদের API Route কল করছি
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData })
+                });
+
+                const data = await response.json();
+                if (data.image) {
+                    outputImg.src = `data:image/png;base64,${data.image}`;
+                    resultDisplay.classList.remove('hidden');
+                    createBtn.classList.add('hidden');
+                } else {
+                    throw new Error(data.error || "Failed");
+                }
+            } catch (err) {
+                errorStatus.innerText = "Error: " + err.message;
+                errorStatus.classList.remove('hidden');
+            } finally {
+                createBtn.disabled = false;
+                createBtn.innerText = "Create";
+            }
+        };
+
+        document.getElementById('download-btn').onclick = () => {
+            const a = document.createElement('a');
+            a.href = outputImg.src;
+            a.download = 'passport_photo.png';
+            a.click();
+        };
+    </script>
+</body>
+</html>
